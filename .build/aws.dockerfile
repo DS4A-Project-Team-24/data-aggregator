@@ -17,7 +17,7 @@ RUN pip install --no-python-version-warning -r requirements.txt
 
 WORKDIR $LAMBDA_TASK_ROOT
 
-RUN cp -rf /tmp/src/* $LAMBDA_TASK_ROOT
+RUN cp -rf /tmp/* $LAMBDA_TASK_ROOT
 RUN rm -rf {.,**}/__pycache__ {.,**}/algo_trader.egg-info /tmp/*
 
 CMD ["app.handler"]
