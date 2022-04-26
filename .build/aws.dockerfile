@@ -13,7 +13,6 @@ COPY app.py app.py
 
 RUN pip install --no-python-version-warning --upgrade pip
 RUN pip install --no-python-version-warning wheel
-RUN python setup.py egg_info
 RUN pip install --no-python-version-warning -r requirements.txt
 
 WORKDIR $LAMBDA_TASK_ROOT
