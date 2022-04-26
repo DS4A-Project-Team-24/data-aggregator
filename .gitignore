@@ -1,0 +1,14 @@
+.eggs
+**/__pycache__
+
+logs
+algo_trader.egg-info
+dist
+bin
+lib
+pyvenv.cfg
+include
+.pytest_cache
+build/**
+shazam*.csv*
+lastfm*.json*

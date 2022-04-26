@@ -1,0 +1,6 @@
+.pytest_cache/
+algo_trader.egg-info
+logs/
+__pycache__/
+.github
+build

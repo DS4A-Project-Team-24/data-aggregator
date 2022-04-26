@@ -1,0 +1,7 @@
+{
+  "name": "data-aggregator",
+  "description": "Data aggregation tooling for fro.",
+  "url": "https://github.com/DS4A-Project-Team-24/data-aggregator",
+  "minimum_python": ">=3.6.0",
+  "version": "latest"
+}

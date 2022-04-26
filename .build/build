@@ -1,0 +1,28 @@
+#!/bin/sh
+
+docker_build() {
+    docker build -f .build/aws.dockerfile . --tag "$ECR_REGISTRY/$ECR_REPOSITORY:$1"
+}
+
+docker_push() {
+    docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$1"
+}
+
+default_action=docker
+action=${1:-$default_action}
+image_name="oluwatobi/$(jq -r '.name' package.json)"
+image_version=$(jq -r '.version' package.json)
+
+case $action in
+  'docker:build')
+    docker_build $image_version
+    ;;
+
+  'docker:push')
+    docker_push $image_version
+    ;;
+
+  *)
+    echo 'Please enter a valid action: ["docker:build", "docker:push"]'
+    ;;
+esac
