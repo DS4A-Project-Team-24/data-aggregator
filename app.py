@@ -124,7 +124,7 @@ def handler(event, context):
     if aggregation_mode == AM_SHAZAM:
         aggregate_shazam_data()
     elif aggregation_mode == AM_LAST_FM:
-        aggregate_lastfm_data()
+        aggregate_last_fm_data()
     elif aggregation_mode == AM_SPOTIFY:
         # TODO(natek,sonialemou): once you are both able to find the appropriate sp
         aggregate_spotify_data()
