@@ -6,13 +6,13 @@ from datetime import date
 
 import boto3
 import csv
+import gzip
 import io
 import json
 import logging
 import os
 import requests
 import sys
-import tarfile
 
 # CONSTANTS
 AM_SHAZAM = 'shazam'
@@ -28,7 +28,6 @@ ENV_AGGREGATION_MODE = 'AGGREGATION_MODE'
 ENV_LAST_FM_API_KEY = 'LAST_FM_API_KEY'
 ENV_LOGGING_LEVEL = 'LOGGING_LEVEL'
 ENV_S3_BUCKET = 'S3_BUCKET'
-ENV_S3_BUCKET_DIR = 'S3_BUCKET_DIR'
 
 # ERRORS
 class InvalidAggregationModeException(Exception):
