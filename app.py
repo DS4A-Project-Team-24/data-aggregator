@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from botocore.exceptions import ClientError
+# from botocore.exceptions import ClientError
 from datetime import date
 
 import boto3
 import csv
+import io
 import json
 import logging
 import os
@@ -35,22 +36,25 @@ class InvalidAggregationModeException(Exception):
     def __init__(self, message):
         super().__init__(message)
 
-def compress_file(file_name, compressed_filename):
-    with tarfile.open(compressed_filename, "w:gz") as tar:
-        tar.add(file_name)
+def compress_file(file_content):
+    compressed_file = io.StringIO()
+    gzip_file = gzip.GzipFile(fileobj=stringio, mode='w')
+    gzip_file.write(file_content)
+    gzip_file.close()
+    return compressed_file
 
-def upload_to_s3(s3_bucket, file_name):
+def upload_to_s3(s3_bucket, file_name, file_stringio):
     logger = logging.getLogger()
     aggregation_date = date.today()
     s3_directory = f'{aggregation_date.year}/{aggregation_date.month}/{aggregation_date.day}'
-    compressed_filename = f'{file_name}.tar.gz'
-    object_name = f'{s3_directory}/{compressed_filename}'
-    compress_file(file_name, compressed_filename)
-    s3_client = boto3.client('s3')
+    object_name = f'{s3_directory}/{file_name}.gz'
+    s3_client = boto3.resource('s3')
 
+    logger.info(f'Uploading {object_name} to S3.')
     try:
-        response = s3_client.upload_file(compressed_filename, s3_bucket, object_name)
-    except ClientError as e:
+        response = s3_client.Bucket(s3_bucket).upload_fileobj(file_stringio, object_name)
+        logging.info(f'Successfully uploaded {object_name} to S3.')
+    except Exception as e:
         logging.error(e)
 
 def aggregate_shazam_data():
@@ -77,12 +81,10 @@ def aggregate_shazam_data():
     csv_lines = csv_lines[SHAZAM_CSV_OFFSET:]
     csvfilename = f"shazam_{date.today().strftime('%Y-%m-%d')}.csv"
 
-    with open(csvfilename, 'w') as csvfile:
-        csvfile.writelines(csv_lines[0])
-        for csv_line in csv_lines[1:]:
-            csvfile.writelines(f'\n{csv_line}')
+    file_content = '\n'.join(csv_lines)
+    compressed_csv_file = compress_file(file_content)
 
-    upload_to_s3(s3_bucket, csvfilename)
+    upload_to_s3(s3_bucket, csv_file_name, compressed_csv_file)
 
 def aggregate_last_fm_data():
     """
@@ -104,13 +106,13 @@ def aggregate_last_fm_data():
     s3_bucket = os.environ.get(ENV_S3_BUCKET, 'data-engineering')
     last_fm_api_key = os.environ.get(ENV_LAST_FM_API_KEY)
     response = requests.get(LAST_FM_TOP_200_US_GEO_TRACK.format(last_fm_api_key))
-    response_body = response.json()
     json_file_name = f"lastfm_{date.today().strftime('%Y-%m-%d')}.json"
+    json_file = io.StringIO('\n'.join())
 
-    with open(json_file_name, 'w') as jsonfile:
-        json.dump(response_body, jsonfile)
+    file_content = response.text
+    compressed_json_file = compress_file(file_content)
 
-    upload_to_s3(s3_bucket, json_file_name)
+    upload_to_s3(s3_bucket, json_file_name, compressed_json_file)
 
 def handler(event, context):
     logging_level = os.environ.get(ENV_LOGGING_LEVEL, 'info').upper()
@@ -132,4 +134,4 @@ def handler(event, context):
         raise InvalidAggregationModeError(f'Invalid aggregation_mode provided: "{aggregation_mode}"')
 
 if __name__ == '__main__':
-    aggregate_last_fm_data()
+    aggregate_shazam_data()
