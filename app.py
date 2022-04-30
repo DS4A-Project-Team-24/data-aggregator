@@ -36,9 +36,9 @@ class InvalidAggregationModeException(Exception):
         super().__init__(message)
 
 def compress_file(file_content):
-    compressed_file = io.BytesIO()
-    with gzip.GzipFile(fileobj=compressed_file, mode='w') as gzip_file:
-      gzip_file.write(file_content)
+    compressed_file = io.BytesIO(bf'{file_content}')
+    # with gzip.GzipFile(fileobj=compressed_file, mode='w') as gzip_file:
+    #   gzip_file.write(file_content)
     return compressed_file
 
 def upload_to_s3(s3_bucket, file_name, file_stringio):
@@ -79,7 +79,7 @@ def aggregate_shazam_data():
     csv_lines = csv_lines[SHAZAM_CSV_OFFSET:]
     csv_file_name = f"shazam_{date.today().strftime('%Y-%m-%d')}.csv"
     file_content = bytes('\n'.join(csv_lines), 'utf-8')
-    #compressed_csv_file = compress_file(file_content)
+    compressed_csv_file = compress_file(file_content)
 
     upload_to_s3(s3_bucket, csv_file_name, file_content)
 
