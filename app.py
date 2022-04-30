@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError
 from datetime import date
 
 import boto3
@@ -45,14 +45,14 @@ def upload_to_s3(s3_bucket, file_name, file_stringio):
     logger = logging.getLogger()
     aggregation_date = date.today()
     s3_directory = f'{aggregation_date.year}/{aggregation_date.month}/{aggregation_date.day}'
-    object_name = f'{s3_directory}/{file_name}.gz'
+    object_name = f'{s3_directory}/{file_name}'
     s3_client = boto3.resource('s3')
 
     logger.info(f'Uploading {object_name} to S3.')
     try:
         response = s3_client.Bucket(s3_bucket).upload_fileobj(file_stringio, object_name)
         logging.info(f'Successfully uploaded {object_name} to S3.')
-    except Exception as e:
+    except ClientError as e:
         logging.error(e)
 
 def aggregate_shazam_data():
@@ -65,7 +65,7 @@ def aggregate_shazam_data():
                         |
                         ⌎ – <MONTH (e.g. 04)>
                                     |
-                                    ⌎ – <'shazam_YEAR>-<MONTH>-<DAY_OF_WEEK>.csv.tar.gz'
+                                    ⌎ – 'shazam_<YEAR>-<MONTH>-<DAY_OF_WEEK>.csv.tar.gz'
 
     The greatest frequency this aggregation mode should be run is once a week–the source for this
     data is aggregated weekly.
@@ -79,9 +79,9 @@ def aggregate_shazam_data():
     csv_lines = csv_lines[SHAZAM_CSV_OFFSET:]
     csv_file_name = f"shazam_{date.today().strftime('%Y-%m-%d')}.csv"
     file_content = bytes('\n'.join(csv_lines), 'utf-8')
-    compressed_csv_file = compress_file(file_content)
+    #compressed_csv_file = compress_file(file_content)
 
-    upload_to_s3(s3_bucket, csv_file_name, compressed_csv_file)
+    upload_to_s3(s3_bucket, csv_file_name, file_content)
 
 def aggregate_last_fm_data():
     """
