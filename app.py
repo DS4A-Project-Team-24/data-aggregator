@@ -81,7 +81,7 @@ def aggregate_shazam_data():
     file_content = bytes('\n'.join(csv_lines), 'utf-8')
     compressed_csv_file = compress_file(file_content)
 
-    upload_to_s3(s3_bucket, csv_file_name, file_content)
+    upload_to_s3(s3_bucket, csv_file_name, compressed_csv_file)
 
 def aggregate_last_fm_data():
     """
