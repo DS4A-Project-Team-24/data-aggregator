@@ -77,8 +77,7 @@ def aggregate_shazam_data():
     raw_csv = response.text
     csv_lines = raw_csv.splitlines()
     csv_lines = csv_lines[SHAZAM_CSV_OFFSET:]
-    csvfilename = f"shazam_{date.today().strftime('%Y-%m-%d')}.csv"
-
+    csv_file_name = f"shazam_{date.today().strftime('%Y-%m-%d')}.csv"
     file_content = bytes('\n'.join(csv_lines), 'utf-8')
     compressed_csv_file = compress_file(file_content)
 
@@ -105,12 +104,10 @@ def aggregate_last_fm_data():
     last_fm_api_key = os.environ.get(ENV_LAST_FM_API_KEY)
     response = requests.get(LAST_FM_TOP_200_US_GEO_TRACK.format(last_fm_api_key))
     json_file_name = f"lastfm_{date.today().strftime('%Y-%m-%d')}.json"
-    json_file = io.StringIO('\n'.join())
-
     file_content = bytes(response.text, 'utf-8')
     compressed_json_file = compress_file(file_content)
 
-    upload_to_s3(s3_bucket, json_file_name,  compressed_json_file)
+    upload_to_s3(s3_bucket, json_file_name, compressed_json_file)
 
 def handler(event, context):
     logging_level = os.environ.get(ENV_LOGGING_LEVEL, 'info').upper()
