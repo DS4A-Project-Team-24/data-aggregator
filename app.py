@@ -79,7 +79,7 @@ def aggregate_shazam_data():
     csv_lines = csv_lines[SHAZAM_CSV_OFFSET:]
     csvfilename = f"shazam_{date.today().strftime('%Y-%m-%d')}.csv"
 
-    file_content = bytes('\n'.join(csv_lines))
+    file_content = bytes('\n'.join(csv_lines), 'utf-8')
     compressed_csv_file = compress_file(file_content)
 
     upload_to_s3(s3_bucket, csv_file_name, compressed_csv_file)
