@@ -36,7 +36,7 @@ class InvalidAggregationModeException(Exception):
         super().__init__(message)
 
 def compress_file(file_content):
-    compressed_file = io.BytesIO(bytes(f'{file_content}'))
+    compressed_file = io.BytesIO(file_content)
     # with gzip.GzipFile(fileobj=compressed_file, mode='w') as gzip_file:
     #   gzip_file.write(file_content)
     return compressed_file
