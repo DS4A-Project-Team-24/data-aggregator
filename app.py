@@ -36,6 +36,7 @@ class InvalidAggregationModeException(Exception):
         super().__init__(message)
 
 def compress_file(file_content):
+    file_content = bytes(file_content, 'utf-8')
     compressed_file = io.BytesIO(file_content)
     # with gzip.GzipFile(fileobj=compressed_file, mode='w') as gzip_file:
     #   gzip_file.write(bytes(file_content, 'utf-8'))
@@ -79,7 +80,6 @@ def aggregate_shazam_data():
     csv_lines = csv_lines[SHAZAM_CSV_OFFSET:]
     csv_file_name = f"shazam_{date.today().strftime('%Y-%m-%d')}.csv"
     file_content = '\n'.join(csv_lines)
-    # file_content = bytes(file_content, 'utf-8')
     compressed_csv_file = compress_file(file_content)
 
     upload_to_s3(s3_bucket, csv_file_name, compressed_csv_file)
@@ -106,7 +106,6 @@ def aggregate_last_fm_data():
     response = requests.get(LAST_FM_TOP_200_US_GEO_TRACK.format(last_fm_api_key))
     json_file_name = f"lastfm_{date.today().strftime('%Y-%m-%d')}.json"
     file_content = response.text
-    # file_content = bytes(file_content, 'utf-8')
     compressed_json_file = compress_file(file_content)
 
     upload_to_s3(s3_bucket, json_file_name, compressed_json_file)
