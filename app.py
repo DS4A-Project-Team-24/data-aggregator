@@ -36,9 +36,9 @@ class InvalidAggregationModeException(Exception):
         super().__init__(message)
 
 def compress_file(file_content):
-    compressed_file = io.StringIO()
-    with gzip.GzipFile(fileobj=compressed_file, mode='w') as gzip_file:
-      gzip_file.write(bytes(file_content, 'utf-8'))
+    compressed_file = io.BytesIO(file_content)
+    # with gzip.GzipFile(fileobj=compressed_file, mode='w') as gzip_file:
+    #   gzip_file.write(bytes(file_content, 'utf-8'))
     return compressed_file
 
 def upload_to_s3(s3_bucket, file_name, file_stringio):
