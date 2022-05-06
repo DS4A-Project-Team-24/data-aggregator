@@ -110,6 +110,9 @@ def aggregate_last_fm_data():
 
     upload_to_s3(s3_bucket, json_file_name, compressed_json_file)
 
+def aggregate_spotify_data():
+    pass
+
 def handler(event, context):
     logging_level = os.environ.get(ENV_LOGGING_LEVEL, 'info').upper()
     logger = logging.getLogger()
@@ -124,7 +127,9 @@ def handler(event, context):
     elif aggregation_mode == AM_LAST_FM:
         aggregate_last_fm_data()
     elif aggregation_mode == AM_SPOTIFY:
-        # TODO(natek,sonialemou): once you are both able to find the appropriate sp
+        # TODO(natek,sonialemou): once you are both able to find
+        # the appropriate spotify data source, please implement
+        # the appropriate logic here.
         aggregate_spotify_data()
     else:
         raise InvalidAggregationModeError(f'Invalid aggregation_mode provided: "{aggregation_mode}"')
