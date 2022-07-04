@@ -194,9 +194,9 @@ def download_from_s3(s3_bucket, file_name):
     bucket = s3.Bucket(s3_bucket)
     object = bucket.Object(file_name)
 
-    file_stream = io.StringIO()
+    file_stream = io.BytesIO()
     object.download_fileobj(file_stream)
-    return file_content.getvalue()
+    return file_content.getvalue().decode('utf-8')
 
 def list_files(s3_bucket, directory=None):
     s3 = boto3.resource('s3')
@@ -232,6 +232,3 @@ def handler(event, context):
         data_load()
     else:
         raise InvalidAggregationModeError(f'Invalid aggregation_mode provided: "{aggregation_mode}"')
-
-if __name__ == '__main__':
-    aggregate_spotify_data()
