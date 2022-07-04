@@ -22,10 +22,12 @@ import time
 AM_SHAZAM = 'shazam'
 AM_SPOTIFY = 'spotify'
 AM_LAST_FM = 'lastfm'
+AM_DATA_LOAD = 'data_load'
 SHAZAM_TOP_200_US_URL = 'https://www.shazam.com/services/charts/csv/top-200/united-states'
 SHAZAM_CSV_OFFSET = 2
 LAST_FM_TOP_200_US_GEO_TRACK = 'http://ws.audioscrobbler.com/2.0/?api_key={}&format=json&' \
     'method=geo.gettoptracks&country=united%20states&limit=200&page=1'
+WATERMARK_FILE_KEY = 'metadata/watermark.txt'
 
 # ENVIRONMENT VARIABLES
 ENV_AGGREGATION_MODE = 'AGGREGATION_MODE'
@@ -187,6 +189,30 @@ def aggregate_spotify_data():
     csv_file_name = f"spotify_{date.today().strftime('%Y-%m-%d')}.csv"
     upload_to_s3(s3_bucket, csv_file_name, compressed_csv_file)
 
+def download_from_s3(s3_bucket, file_name):
+    s3 = boto3.resource('s3')
+    bucket = s3.Bucket(s3_bucket)
+    object = bucket.Object(file_name)
+
+    file_stream = io.StringIO()
+    object.download_fileobj(file_stream)
+    return file_content.getvalue()
+
+def list_files(s3_bucket, directory=None):
+    s3 = boto3.resource('s3')
+    bucket = s3.Bucket(s3_bucket)
+    return [key.name.encode('utf-8') for key in bucket.list()]
+
+def load_data():
+    s3_bucket = os.environ.get(ENV_S3_BUCKET, 'data-engineering')
+    # Get metadata file
+    watermark = download_from_s3(s3_bucket, WATERMARK_FILE_KEY)
+    logger = logging.getLogger('load_data')
+    logger.info(f'Watermark Content:\n{watermark}')
+
+    all_files_in_bucket = list_files(s3_bucket)
+    logger.info(f'All files in bucket ({s3_bucket}):\n{all_files_in_bucket}')
+
 def handler(event, context):
     logging_level = os.environ.get(ENV_LOGGING_LEVEL, 'info').upper()
     logger = logging.getLogger()
@@ -202,6 +228,8 @@ def handler(event, context):
         aggregate_last_fm_data()
     elif aggregation_mode == AM_SPOTIFY:
         aggregate_spotify_data()
+    elif aggregation_mode == AM_DATA_LOAD:
+        data_load()
     else:
         raise InvalidAggregationModeError(f'Invalid aggregation_mode provided: "{aggregation_mode}"')
 
