@@ -196,7 +196,7 @@ def download_from_s3(s3_bucket, file_name):
 
     file_stream = io.BytesIO()
     object.download_fileobj(file_stream)
-    return file_content.getvalue().decode('utf-8')
+    return file_stream.getvalue().decode('utf-8')
 
 def list_files(s3_bucket, directory=None):
     s3 = boto3.resource('s3')
