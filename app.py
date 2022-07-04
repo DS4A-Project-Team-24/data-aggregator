@@ -203,7 +203,7 @@ def list_files(s3_bucket, directory=None):
     bucket = s3.Bucket(s3_bucket)
     return [key.name.encode('utf-8') for key in bucket.list()]
 
-def load_data():
+def data_load():
     s3_bucket = os.environ.get(ENV_S3_BUCKET, 'data-engineering')
     # Get metadata file
     watermark = download_from_s3(s3_bucket, WATERMARK_FILE_KEY)
