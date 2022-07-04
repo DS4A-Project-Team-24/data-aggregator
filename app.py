@@ -201,7 +201,7 @@ def download_from_s3(s3_bucket, file_name):
 def list_files(s3_bucket, directory=None):
     s3 = boto3.resource('s3')
     bucket = s3.Bucket(s3_bucket)
-    return [key.name.encode('utf-8') for key in bucket.objects.all()]
+    return [obj_summary.key.encode('utf-8') for obj_summary in bucket.objects.all()]
 
 def data_load():
     s3_bucket = os.environ.get(ENV_S3_BUCKET, 'data-engineering')
