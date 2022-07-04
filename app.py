@@ -3,6 +3,7 @@
 
 from botocore.exceptions import ClientError
 from datetime import date
+from spotipy.oauth2 import SpotifyClientCredentials
 
 import boto3
 import csv
@@ -11,8 +12,11 @@ import io
 import json
 import logging
 import os
+import pandas as pd
 import requests
+import spotipy
 import sys
+import time
 
 # CONSTANTS
 AM_SHAZAM = 'shazam'
@@ -26,11 +30,13 @@ LAST_FM_TOP_200_US_GEO_TRACK = 'http://ws.audioscrobbler.com/2.0/?api_key={}&for
 # ENVIRONMENT VARIABLES
 ENV_AGGREGATION_MODE = 'AGGREGATION_MODE'
 ENV_LAST_FM_API_KEY = 'LAST_FM_API_KEY'
+ENV_SPOTIFY_CLIENT_ID = 'SPOTIFY_CLIENT_ID'
+ENV_SPOTIFY_CLIENT_SECRET = 'SPOTIFY_CLIENT_SECRET'
 ENV_LOGGING_LEVEL = 'LOGGING_LEVEL'
 ENV_S3_BUCKET = 'S3_BUCKET'
 
 # ERRORS
-class InvalidAggregationModeException(Exception):
+class InvalidAggregationModeError(Exception):
 
     def __init__(self, message):
         super().__init__(message)
@@ -111,7 +117,75 @@ def aggregate_last_fm_data():
     upload_to_s3(s3_bucket, json_file_name, compressed_json_file)
 
 def aggregate_spotify_data():
-    pass
+    client_id = os.environ.get(ENV_SPOTIFY_CLIENT_ID, None)
+    client_secret = os.environ.get(ENV_SPOTIFY_CLIENT_SECRET, None)
+    s3_bucket = os.environ.get(ENV_S3_BUCKET, 'data-engineering')
+    cache_handler = spotipy.MemoryCacheHandler()
+    auth_manager=SpotifyClientCredentials(
+        client_id=client_id,
+        client_secret=client_secret,
+        cache_handler=cache_handler
+    )
+    sp = spotipy.Spotify(auth_manager=auth_manager)
+
+    artist_name = []
+    album= []
+    track_name = []
+    explicit =[]
+    track_popularity = []
+    track_id = []
+    artist_id = []
+    artist_popularity = []
+    artist_genres = []
+    artist_followers = []
+
+    for i in range (0, 1000, 50):
+        track_results = sp.search(q = 'year:2018-2022', type = 'track', limit = 50, market = "US", offset = i)
+        for i, t in enumerate(track_results['tracks']['items']):
+            artist_name.append(t['artists'][0]['name'])
+            album.append(t['album']['name'])
+            track_name.append(t['name'])
+            explicit.append(t['explicit'])
+            track_id.append(t['id'])
+            artist_id.append(t['artists'][0]['id'])
+            track_popularity.append(t['popularity'])
+
+    song_meta = {
+        'track_id': track_id,
+        'artist_id': artist_id,
+        'artist_name':artist_name,
+        'album': album,
+        'track_name':track_name,
+        'explicit': explicit,
+        'track_popularity' : track_popularity
+    }
+    song_meta_df = pd.DataFrame.from_dict(song_meta)
+    song_meta_df = song_meta_df.sort_values(by=['track_popularity'], ascending=False)
+
+    for a_id in song_meta_df.artist_id:
+        artist = sp.artist(a_id)
+        artist_popularity.append(artist['popularity'])
+        artist_genres.append(artist['genres'])
+        artist_followers.append(artist['followers']['total'])
+
+    song_meta_df = song_meta_df.assign(artist_popularity=artist_popularity,artist_genres=artist_genres,artist_followers=artist_followers)
+
+    track_features = []
+    for t_id in song_meta_df['track_id']:
+        af = sp.audio_features(t_id)
+        track_features.append(af)
+
+    tf_df = pd.DataFrame(columns = ['danceability', 'energy', 'key', 'loudness', 'mode', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo','id', 'uri','analysis_url', 'duration_ms', 'time_signature'])
+    for item in track_features:
+        for feat in item:
+            tf_df = tf_df.append(feat, ignore_index=True)
+
+    s_buf = io.StringIO()
+    tf_df.to_csv(s_buf)
+    csv_content = s_buf.getvalue()
+    compressed_csv_file = compress_file(csv_content)
+    csv_file_name = f"spotify_{date.today().strftime('%Y-%m-%d')}.csv"
+    upload_to_s3(s3_bucket, csv_file_name, compressed_csv_file)
 
 def handler(event, context):
     logging_level = os.environ.get(ENV_LOGGING_LEVEL, 'info').upper()
@@ -127,12 +201,9 @@ def handler(event, context):
     elif aggregation_mode == AM_LAST_FM:
         aggregate_last_fm_data()
     elif aggregation_mode == AM_SPOTIFY:
-        # TODO(natek,sonialemou): once you are both able to find
-        # the appropriate spotify data source, please implement
-        # the appropriate logic here.
         aggregate_spotify_data()
     else:
         raise InvalidAggregationModeError(f'Invalid aggregation_mode provided: "{aggregation_mode}"')
 
 if __name__ == '__main__':
-    aggregate_shazam_data()
+    aggregate_spotify_data()
