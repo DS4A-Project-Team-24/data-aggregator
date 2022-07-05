@@ -227,7 +227,7 @@ def process_and_load_last_fm(s3_bucket, last_fm_file_names):
     pd.options.display.max_columns = None
     pd.options.display.max_rows = None
 
-    logger.info()
+    logger.info(f'DataFrame:\n{composite_df}')
     raw_artist_col = composite_df.get('artist', None)
     if raw_artist_col != None:
         composite_df['artist_name'] = raw_artist_col.apply(lambda x: x['name'])
