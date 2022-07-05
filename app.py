@@ -199,6 +199,40 @@ def download_from_s3(s3_bucket, file_name):
     object.download_fileobj(file_stream)
     return file_stream.getvalue().decode('utf-8')
 
+def load_composite_df_from_s3(s3_bucket, file_names, pd_read_func):
+    df_list = []
+    for file_name in file_names:
+        file_content = download_from_s3(s3_bucket, file_name)
+        df = pd_read_func(StringIO(file_content))
+        df_list.append(df)
+
+    composite_df = pd.concat(df_list, axis=1, ignore_index=True)
+    return composite_df
+
+def process_and_load_last_fm(s3_bucket, last_fm_file_names):
+    logger = logging.getLogger('load_data.process_and_load_last_fm')
+    composite_df = load_composite_df_from_s3(s3_bucket, last_fm_file_names, pd.read_json)
+    logger.info(f'Composite Data Frame:\n{composite_df}')
+    # TODO(oluwatobi): connect to Redshift and upload data to table.
+
+def process_and_load_shazam(s3_bucket, shazam_file_names):
+    logger = logging.getLogger('load_data.process_and_load_shazam')
+    composite_df = load_composite_df_from_s3(s3_bucket, shazam_file_names, pd.read_csv)
+    logger.info(f'Composite Data Frame:\n{composite_df}')
+    # TODO(oluwatobi): connect to Redshift and upload data to table.
+
+def process_and_load_spotify(s3_bucket, spotify_file_names):
+    logger = logging.getLogger('load_data.process_and_load_spotify')
+    composite_df = load_composite_df_from_s3(s3_bucket, spotify_file_names, pd.read_csv)
+    logger.info(f'Composite Data Frame:\n{composite_df}')
+    # TODO(oluwatobi): connect to Redshift and upload data to table.
+
+def update_watermark(s3_bucket, previously_processed_files, newly_processed_files):
+    composite_watermark = previously_processed_files + newly_processed_files
+    composite_watermark.sort()
+    updated_watermark_file_content = '\n'.join(composite_watermark)
+    upload_to_s3(s3_bucket, WATERMARK_FILE_KEY, updated_watermark_file_content)
+
 def list_files(s3_bucket, directory=None):
     s3 = boto3.resource('s3')
     bucket = s3.Bucket(s3_bucket)
@@ -210,15 +244,16 @@ SPOTIFY_FILE_REGEX = '.*spotify_.*.csv'
 
 def data_load():
     s3_bucket = os.environ.get(ENV_S3_BUCKET, 'data-engineering')
+    logger = logging.getLogger('load_data')
     # Get metadata file
     watermark = download_from_s3(s3_bucket, WATERMARK_FILE_KEY)
-    logger = logging.getLogger('load_data')
     logger.info(f'Watermark Content:\n{watermark}')
-    processed_file_names = set(watermark.split('\n'))
+    processed_file_names = watermark.split('\n')
+    unique_processed_file_names = set(processed_file_names)
 
     all_files_in_bucket = list_files(s3_bucket)
     logger.info(f'All files in bucket ({s3_bucket}):\n{all_files_in_bucket}')
-    unprocessed_file_names = [file for file in all_files_in_bucket if file not in processed_file_names]
+    unprocessed_file_names = [file for file in all_files_in_bucket if file not in unique_processed_file_names]
     logger.info(f'Unprocessed files:\n{unprocessed_file_names}')
 
     last_fm_data = []
@@ -233,6 +268,10 @@ def data_load():
             spotify_data.append(file_name)
 
     logger.info(f'Unprocessed files:\n\tlast fm: {last_fm_data}\n\tshazam: {shazam_data}\n\tspotify: {spotify_data}')
+    process_and_load_last_fm(s3_bucket, last_fm_data)
+    process_and_load_shazam(s3_bucket, shazam_data)
+    process_and_load_spotify(s3_bucket, spotify_data)
+    update_watermark(s3_bucket, processed_file_names, unprocessed_file_names)
 
 def handler(event, context):
     logging_level = os.environ.get(ENV_LOGGING_LEVEL, 'info').upper()
