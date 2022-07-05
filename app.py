@@ -24,10 +24,13 @@ AM_SHAZAM = 'shazam'
 AM_SPOTIFY = 'spotify'
 AM_LAST_FM = 'lastfm'
 AM_DATA_LOAD = 'data_load'
-SHAZAM_TOP_200_US_URL = 'https://www.shazam.com/services/charts/csv/top-200/united-states'
-SHAZAM_CSV_OFFSET = 2
 LAST_FM_TOP_200_US_GEO_TRACK = 'http://ws.audioscrobbler.com/2.0/?api_key={}&format=json&' \
     'method=geo.gettoptracks&country=united%20states&limit=200&page=1'
+LAST_FM_FILE_REGEX = '.*lastfm_.*.json'
+SHAZAM_TOP_200_US_URL = 'https://www.shazam.com/services/charts/csv/top-200/united-states'
+SHAZAM_CSV_OFFSET = 2
+SHAZAM_FILE_REGEX = '.*shazam_.*.csv'
+SPOTIFY_FILE_REGEX = '.*spotify_.*.csv'
 WATERMARK_FILE_KEY = 'metadata/watermark.txt'
 
 # ENVIRONMENT VARIABLES
@@ -199,7 +202,7 @@ def download_from_s3(s3_bucket, file_name):
     object.download_fileobj(file_stream)
     return file_stream.getvalue().decode('utf-8')
 
-def load_composite_df_from_s3(s3_bucket, file_names, pd_read_func, processor_func=lambda x: x):
+def load_composite_df_from_s3(s3_bucket, file_names, pd_read_func, processor_func, process_df):
     df_list = []
     for file_name in file_names:
         file_content = download_from_s3(s3_bucket, file_name)
@@ -208,47 +211,35 @@ def load_composite_df_from_s3(s3_bucket, file_names, pd_read_func, processor_fun
         df_list.append(df)
 
     composite_df = pd.concat(df_list, axis=0, ignore_index=True)
+    process_df(composite_df)
     return composite_df
 
 def process_last_fm_data(file_content):
     logger = logging.getLogger('load_data.process_and_load_last_fm')
     last_fm_json = json.loads(file_content)
     last_fm_json = last_fm_json.get('tracks', {'track': []}).get('track')
-    logger.info(f'JSON data: {last_fm_json}')
     return json.dumps(last_fm_json)
 
-def process_and_load_last_fm(s3_bucket, last_fm_file_names):
-    logger = logging.getLogger('load_data.process_and_load_last_fm')
-    composite_df = load_composite_df_from_s3(
-        s3_bucket,
-        last_fm_file_names,
-        pd.read_json,
-        processor_func=process_last_fm_data
-    )
-
-    pd.options.display.max_columns = None
-    pd.options.display.max_rows = None
-
-    logger.info(f'DataFrame:\n{composite_df.head()}')
+def process_last_fm_df(composite_df):
     raw_artist_col = composite_df.get('artist')
     composite_df['artist_name'] = raw_artist_col.apply(lambda x: x['name'])
     composite_df['artist_mbid'] = raw_artist_col.apply(lambda x: x['mbid'])
     composite_df['artist_url'] = raw_artist_col.apply(lambda x: x['url'])
-
     composite_df['attr_rank'] = composite_df['@attr'].apply(lambda x: x['rank'])
     composite_df['streamable_text'] = composite_df['streamable'].apply(lambda x: x['#text'])
     composite_df['streamable_fulltrack'] = composite_df['streamable'].apply(lambda x: x['fulltrack'])
     composite_df = composite_df.drop(columns=['artist', '@attr', 'streamable', 'image'])
-    # TODO(oluwatobi): connect to Redshift and upload data to table.
+    return composite_df
 
-def process_and_load_shazam(s3_bucket, shazam_file_names):
-    logger = logging.getLogger('load_data.process_and_load_shazam')
-    composite_df = load_composite_df_from_s3(s3_bucket, shazam_file_names, pd.read_csv)
-    # TODO(oluwatobi): connect to Redshift and upload data to table.
-
-def process_and_load_spotify(s3_bucket, spotify_file_names):
-    logger = logging.getLogger('load_data.process_and_load_spotify')
-    composite_df = load_composite_df_from_s3(s3_bucket, spotify_file_names, pd.read_csv)
+def process_and_load_data(s3_bucket, file_names, df_parser_func, processor_func=lambda x: x, process_df=lambda x: x):
+    logger = logging.getLogger('load_data.process_and_load_data')
+    composite_df = load_composite_df_from_s3(
+        s3_bucket,
+        last_fm_file_names,
+        df_parser_func,
+        processor_func,
+        process_df
+    )
     # TODO(oluwatobi): connect to Redshift and upload data to table.
 
 def update_watermark(s3_bucket, previously_processed_files, newly_processed_files):
@@ -261,10 +252,6 @@ def list_files(s3_bucket, directory=None):
     s3 = boto3.resource('s3')
     bucket = s3.Bucket(s3_bucket)
     return [obj_summary.key for obj_summary in bucket.objects.all()]
-
-LAST_FM_FILE_REGEX = '.*lastfm_.*.json'
-SHAZAM_FILE_REGEX = '.*shazam_.*.csv'
-SPOTIFY_FILE_REGEX = '.*spotify_.*.csv'
 
 def data_load():
     s3_bucket = os.environ.get(ENV_S3_BUCKET, 'data-engineering')
@@ -292,9 +279,9 @@ def data_load():
             spotify_data.append(file_name)
 
     logger.info(f'Unprocessed files:\n\tlast fm: {last_fm_data}\n\tshazam: {shazam_data}\n\tspotify: {spotify_data}')
-    process_and_load_last_fm(s3_bucket, last_fm_data)
-    process_and_load_shazam(s3_bucket, shazam_data)
-    process_and_load_spotify(s3_bucket, spotify_data)
+    process_and_load_data(s3_bucket, last_fm_data, pd.read_json, processor_func=process_last_fm_data, process_df=process_last_fm_df)
+    process_and_load_data(s3_bucket, shazam_data, pd.read_csv)
+    process_and_load_data(s3_bucket, spotify_data, pd.read_csv)
     # update_watermark(s3_bucket, processed_file_names, unprocessed_file_names)
 
 def handler(event, context):
