@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import pandas as pd
+import re
 import requests
 import spotipy
 import sys
@@ -201,7 +202,11 @@ def download_from_s3(s3_bucket, file_name):
 def list_files(s3_bucket, directory=None):
     s3 = boto3.resource('s3')
     bucket = s3.Bucket(s3_bucket)
-    return [obj_summary.key.encode('utf-8') for obj_summary in bucket.objects.all()]
+    return [obj_summary.key for obj_summary in bucket.objects.all()]
+
+LAST_FM_FILE_REGEX = '.*lastfm_.*.json'
+SHAZAM_FILE_REGEX = '.*shazam_.*.csv'
+SPOTIFY_FILE_REGEX = '.*spotify_.*.csv'
 
 def data_load():
     s3_bucket = os.environ.get(ENV_S3_BUCKET, 'data-engineering')
@@ -209,9 +214,25 @@ def data_load():
     watermark = download_from_s3(s3_bucket, WATERMARK_FILE_KEY)
     logger = logging.getLogger('load_data')
     logger.info(f'Watermark Content:\n{watermark}')
+    processed_file_names = set(watermark.split('\n'))
 
     all_files_in_bucket = list_files(s3_bucket)
     logger.info(f'All files in bucket ({s3_bucket}):\n{all_files_in_bucket}')
+    unprocessed_file_names = [file for file in all_files_in_bucket if file not in processed_file_names]
+    logger.info(f'Unprocessed files:\n{unprocessed_files}')
+
+    last_fm_data = []
+    shazam_data = []
+    spotify_data = []
+    for file_name in unprocessed_file_names:
+        if re.match(LAST_FM_FILE_REGEX, file_name):
+            last_fm_data.append(file_name)
+        elif re.match(SHAZAM_FILE_REGEX, file_name):
+            shazam_data.append(file_name)
+        elif re.match(SPOTIFY_FILE_REGEX, file_name):
+            spotify_data.append(file_name)
+
+    logger.info(f'Unprocessed files:\n\tlast fm: {last_fm_data}\n\tshazam: {shazam_data}\n\tspotify: {spotify_data}')
 
 def handler(event, context):
     logging_level = os.environ.get(ENV_LOGGING_LEVEL, 'info').upper()
