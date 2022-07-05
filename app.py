@@ -203,7 +203,7 @@ def load_composite_df_from_s3(s3_bucket, file_names, pd_read_func):
     df_list = []
     for file_name in file_names:
         file_content = download_from_s3(s3_bucket, file_name)
-        df = pd_read_func(StringIO(file_content))
+        df = pd_read_func(io.StringIO(file_content))
         df_list.append(df)
 
     composite_df = pd.concat(df_list, axis=1, ignore_index=True)
