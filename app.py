@@ -238,8 +238,8 @@ def process_and_load_last_fm(s3_bucket, last_fm_file_names):
     composite_df['attr_rank'] = composite_df['@attr'].apply(lambda x: x['rank'])
     composite_df['streamable_text'] = composite_df['streamable'].apply(lambda x: x['#text'])
     composite_df['streamable_fulltrack'] = composite_df['streamable'].apply(lambda x: x['fulltrack'])
-    composite_df = df.drop(columns=['artist', '@attr', 'streamable', 'image'])
-    logger.info(f'Composite Data Frame:\n{composite_df}')
+    composite_df = composite_df.drop(columns=['artist', '@attr', 'streamable', 'image'])
+    logger.info(f'Composite Data Frame:\n{composite_df.head()}')
     # TODO(oluwatobi): connect to Redshift and upload data to table.
 
 def process_and_load_shazam(s3_bucket, shazam_file_names):
