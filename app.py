@@ -223,9 +223,19 @@ def process_and_load_last_fm(s3_bucket, last_fm_file_names):
         pd.read_json,
         processor_func=process_last_fm_data
     )
-    composite_df['artist_name'] = composite_df['artist'].apply(lambda x: x['name'])
-    composite_df['artist_mbid'] = composite_df['artist'].apply(lambda x: x['mbid'])
-    composite_df['artist_url'] = composite_df['artist'].apply(lambda x: x['url'])
+
+    pd.options.display.max_columns = None
+    pd.options.display.max_rows = None
+
+    logger.info()
+    raw_artist_col = composite_df.get('artist', None)
+    if raw_artist_col != None:
+        composite_df['artist_name'] = raw_artist_col.apply(lambda x: x['name'])
+        composite_df['artist_mbid'] = raw_artist_col.apply(lambda x: x['mbid'])
+        composite_df['artist_url'] = raw_artist_col.apply(lambda x: x['url'])
+    else:
+        logger.info('No artist column')
+
     composite_df['attr_rank'] = composite_df['@attr'].apply(lambda x: x['rank'])
     composite_df['streamable_text'] = composite_df['streamable'].apply(lambda x: x['#text'])
     composite_df['streamable_fulltrack'] = composite_df['streamable'].apply(lambda x: x['fulltrack'])
@@ -310,21 +320,3 @@ def handler(event, context):
         data_load()
     else:
         raise InvalidAggregationModeError(f'Invalid aggregation_mode provided: "{aggregation_mode}"')
-
-if __name__ == '__main__':
-    pd.options.display.max_columns = None
-    pd.options.display.max_rows = None
-
-    lastfm_json = None
-    with open('lastfm_2022-05-01.json') as file:
-        lastfm_json = json.load(file)
-
-    df = pd.read_json(io.StringIO(json.dumps(lastfm_json.get('tracks').get('track'))))
-    df['artist_name'] = df['artist'].apply(lambda x: x['name'])
-    df['artist_mbid'] = df['artist'].apply(lambda x: x['mbid'])
-    df['artist_url'] = df['artist'].apply(lambda x: x['url'])
-    df['attr_rank'] = df['@attr'].apply(lambda x: x['rank'])
-    df['streamable_text'] = df['streamable'].apply(lambda x: x['#text'])
-    df['streamable_fulltrack'] = df['streamable'].apply(lambda x: x['fulltrack'])
-    df = df.drop(columns=['artist', '@attr', 'streamable', 'image'])
-    print(df.head())
