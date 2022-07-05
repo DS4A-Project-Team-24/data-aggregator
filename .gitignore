@@ -12,3 +12,4 @@ include
 build/**
 shazam*.csv*
 lastfm*.json*
+spotify*.csv*
