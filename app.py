@@ -211,8 +211,10 @@ def load_composite_df_from_s3(s3_bucket, file_names, pd_read_func, processor_fun
     return composite_df
 
 def process_last_fm_data(file_content):
+    logger = logging.getLogger('load_data.process_and_load_last_fm')
     last_fm_json = json.loads(file_content)
     last_fm_json = last_fm_json.get('tracks', {'track': []}).get('track')
+    logger.info(f'JSON data: {last_fm_json}')
     return json.dumps(last_fm_json)
 
 def process_and_load_last_fm(s3_bucket, last_fm_file_names):
