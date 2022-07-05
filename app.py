@@ -207,7 +207,7 @@ def load_composite_df_from_s3(s3_bucket, file_names, pd_read_func, processor_fun
         df = pd_read_func(io.StringIO(file_content))
         df_list.append(df)
 
-    composite_df = pd.concat(df_list, axis=1, ignore_index=True)
+    composite_df = pd.concat(df_list, axis=0, ignore_index=True)
     return composite_df
 
 def process_last_fm_data(file_content):
