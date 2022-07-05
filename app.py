@@ -235,7 +235,7 @@ def process_and_load_data(s3_bucket, file_names, df_parser_func, processor_func=
     logger = logging.getLogger('load_data.process_and_load_data')
     composite_df = load_composite_df_from_s3(
         s3_bucket,
-        last_fm_file_names,
+        file_names,
         df_parser_func,
         processor_func,
         process_df
