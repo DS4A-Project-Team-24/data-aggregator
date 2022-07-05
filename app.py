@@ -239,19 +239,16 @@ def process_and_load_last_fm(s3_bucket, last_fm_file_names):
     composite_df['streamable_text'] = composite_df['streamable'].apply(lambda x: x['#text'])
     composite_df['streamable_fulltrack'] = composite_df['streamable'].apply(lambda x: x['fulltrack'])
     composite_df = composite_df.drop(columns=['artist', '@attr', 'streamable', 'image'])
-    logger.info(f'Composite Data Frame:\n{composite_df.head()}')
     # TODO(oluwatobi): connect to Redshift and upload data to table.
 
 def process_and_load_shazam(s3_bucket, shazam_file_names):
     logger = logging.getLogger('load_data.process_and_load_shazam')
     composite_df = load_composite_df_from_s3(s3_bucket, shazam_file_names, pd.read_csv)
-    logger.info(f'Composite Data Frame:\n{composite_df}')
     # TODO(oluwatobi): connect to Redshift and upload data to table.
 
 def process_and_load_spotify(s3_bucket, spotify_file_names):
     logger = logging.getLogger('load_data.process_and_load_spotify')
     composite_df = load_composite_df_from_s3(s3_bucket, spotify_file_names, pd.read_csv)
-    logger.info(f'Composite Data Frame:\n{composite_df}')
     # TODO(oluwatobi): connect to Redshift and upload data to table.
 
 def update_watermark(s3_bucket, previously_processed_files, newly_processed_files):
