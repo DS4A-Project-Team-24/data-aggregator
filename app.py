@@ -230,13 +230,10 @@ def process_and_load_last_fm(s3_bucket, last_fm_file_names):
     pd.options.display.max_rows = None
 
     logger.info(f'DataFrame:\n{composite_df.head()}')
-    raw_artist_col = composite_df.get('artist', None)
-    if raw_artist_col != None:
-        composite_df['artist_name'] = raw_artist_col.apply(lambda x: x['name'])
-        composite_df['artist_mbid'] = raw_artist_col.apply(lambda x: x['mbid'])
-        composite_df['artist_url'] = raw_artist_col.apply(lambda x: x['url'])
-    else:
-        logger.info('No artist column')
+    raw_artist_col = composite_df.get('artist')
+    composite_df['artist_name'] = raw_artist_col.apply(lambda x: x['name'])
+    composite_df['artist_mbid'] = raw_artist_col.apply(lambda x: x['mbid'])
+    composite_df['artist_url'] = raw_artist_col.apply(lambda x: x['url'])
 
     composite_df['attr_rank'] = composite_df['@attr'].apply(lambda x: x['rank'])
     composite_df['streamable_text'] = composite_df['streamable'].apply(lambda x: x['#text'])
