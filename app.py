@@ -219,7 +219,7 @@ def data_load():
     all_files_in_bucket = list_files(s3_bucket)
     logger.info(f'All files in bucket ({s3_bucket}):\n{all_files_in_bucket}')
     unprocessed_file_names = [file for file in all_files_in_bucket if file not in processed_file_names]
-    logger.info(f'Unprocessed files:\n{unprocessed_files}')
+    logger.info(f'Unprocessed files:\n{unprocessed_file_names}')
 
     last_fm_data = []
     shazam_data = []
