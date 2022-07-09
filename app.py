@@ -240,6 +240,7 @@ def process_and_load_data(s3_bucket, file_names, df_parser_func, processor_func=
         processor_func,
         process_df
     )
+    logger.info(composite_df.info())
     # TODO(oluwatobi): connect to Redshift and upload data to table.
 
 def update_watermark(s3_bucket, previously_processed_files, newly_processed_files):
