@@ -1,5 +1,7 @@
 boto3
 pandas
+psycopg2
 requests
 spotipy
 sqlalchemy
+sqlalchemy-redshift
