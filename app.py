@@ -123,6 +123,7 @@ def aggregate_last_fm_data():
     upload_to_s3(s3_bucket, json_file_name, compressed_json_file)
 
 def aggregate_spotify_data():
+    logger = logging.getLogger('spotify')
     client_id = os.environ.get(ENV_SPOTIFY_CLIENT_ID, None)
     client_secret = os.environ.get(ENV_SPOTIFY_CLIENT_SECRET, None)
     s3_bucket = os.environ.get(ENV_S3_BUCKET, 'data-engineering')
@@ -167,6 +168,7 @@ def aggregate_spotify_data():
     }
     song_meta_df = pd.DataFrame.from_dict(song_meta)
     song_meta_df = song_meta_df.sort_values(by=['track_popularity'], ascending=False)
+    logger.info(song_meta_df.info())
 
     for a_id in song_meta_df.artist_id:
         artist = sp.artist(a_id)
