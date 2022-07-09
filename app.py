@@ -6,7 +6,6 @@ from botocore.exceptions import ClientError
 from datetime import date
 from spotipy.oauth2 import SpotifyClientCredentials
 from sqlalchemy import create_engine
-from sqlalchemy.engine.url import URL
 
 import boto3
 import io
@@ -284,14 +283,7 @@ def load_data_to_redshift(
         rs_db,
         rs_user,
         rs_password):
-    connection_string = URL(
-        drivername='postgresql+psycopg2',
-        username=rs_user,
-        password=rs_password,
-        host=rs_host,
-        port=rs_port,
-        database=rs_db)
-    rs_conn = create_engine(connection_string)
+    rs_conn = create_engine(f'postgresql://{rs_user}:{rs_password}@{rs_host}:{rs_port}/{rs_db}')
     last_fm_df.to_sql(REDSHIFT_DB_NAME_LAST_FM, rs_conn, index=False, if_exists='append')
     shazam_df.to_sql(REDSHIFT_DB_NAME_SHAZAM, rs_conn, index=False, if_exists='append')
     spotify_df.to_sql(REDSHIFT_DB_NAME_SPOTIFY, rs_conn, index=False, if_exists='append')
