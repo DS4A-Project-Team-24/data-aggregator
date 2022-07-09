@@ -1,6 +1,6 @@
 boto3
 pandas
-psycopg2
+psycopg2-binary
 requests
 spotipy
 sqlalchemy
