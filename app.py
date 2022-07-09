@@ -211,7 +211,7 @@ def load_composite_df_from_s3(s3_bucket, file_names, pd_read_func, processor_fun
         df_list.append(df)
 
     composite_df = pd.concat(df_list, axis=0, ignore_index=True)
-    process_df(composite_df)
+    composite_df = process_df(composite_df)
     return composite_df
 
 def process_last_fm_data(file_content):
@@ -240,7 +240,7 @@ def process_and_load_data(s3_bucket, file_names, df_parser_func, processor_func=
         processor_func,
         process_df
     )
-    logger.info(composite_df.info())
+    logger.info(composite_df.head(4))
     # TODO(oluwatobi): connect to Redshift and upload data to table.
 
 def update_watermark(s3_bucket, previously_processed_files, newly_processed_files):
