@@ -338,23 +338,29 @@ def data_load():
         s3_bucket,
         last_fm_data,
         pd.read_json,
-        REDSHIFT_DB_NAME_LAST_FM,
         processor_func=process_last_fm_data,
         process_df=process_last_fm_df
     )
     shazam_df = load_composite_df_from_s3(
         s3_bucket,
         shazam_data,
-        pd.read_csv,
-        REDSHIFT_DB_NAME_SHAZAM
+        pd.read_csv
     )
     spotify_df = load_composite_df_from_s3(
         s3_bucket,
         spotify_data,
-        pd.read_csv,
-        REDSHIFT_DB_NAME_SPOTIFY
+        pd.read_csv
     )
-    load_data_to_redshift(last_fm_df, shazam_df, spotify_df, rs_host, rs_port, rs_db, rs_user, rs_password)
+    load_data_to_redshift(
+        last_fm_df,
+        shazam_df,
+        spotify_df,
+        rs_host,
+        rs_port,
+        rs_db,
+        rs_user,
+        rs_password
+    )
     # update_watermark(s3_bucket, processed_file_names, unprocessed_file_names)
 
 
