@@ -296,17 +296,16 @@ def load_data_to_redshift(
         rs_user,
         rs_password):
     rs_conn = create_engine(f'postgresql://{rs_user}:{rs_password}@{rs_host}:{rs_port}/{rs_db}')
-    # last_fm_df.to_sql(REDSHIFT_DB_NAME_LAST_FM, rs_conn, index=False, if_exists='append')
-    # shazam_df.to_sql(REDSHIFT_DB_NAME_SHAZAM, rs_conn, index=False, if_exists='append')
+    last_fm_df.to_sql(REDSHIFT_DB_NAME_LAST_FM, rs_conn, index=False, if_exists='append')
+    shazam_df.to_sql(REDSHIFT_DB_NAME_SHAZAM, rs_conn, index=False, if_exists='append')
     spotify_df.to_sql(REDSHIFT_DB_NAME_SPOTIFY, rs_conn, index=False, if_exists='append')
-    # rs_conn.dispose()
 
 
 def update_watermark(s3_bucket, previously_processed_files, newly_processed_files):
     composite_watermark = previously_processed_files + newly_processed_files
     composite_watermark.sort()
     updated_watermark_file_content = io.StringIO('\n'.join(composite_watermark))
-    upload_to_s3(s3_bucket, WATERMARK_FILE_KEY, updated_watermark_file_content)
+    #upload_to_s3(s3_bucket, WATERMARK_FILE_KEY, updated_watermark_file_content)
 
 
 def list_files(s3_bucket, directory=None):
@@ -346,25 +345,25 @@ def data_load():
             spotify_data.append(file_name)
 
     logger.info(f'Unprocessed files:\n\tlast fm: {last_fm_data}\n\tshazam: {shazam_data}\n\tspotify: {spotify_data}')
-    # last_fm_df = load_composite_df_from_s3(
-    #     s3_bucket,
-    #     last_fm_data,
-    #     pd.read_json,
-    #     processor_func=process_last_fm_data,
-    #     process_df=process_last_fm_df
-    # )
-    # shazam_df = load_composite_df_from_s3(
-    #     s3_bucket,
-    #     shazam_data,
-    #     pd.read_csv
-    # )
+    last_fm_df = load_composite_df_from_s3(
+        s3_bucket,
+        last_fm_data,
+        pd.read_json,
+        processor_func=process_last_fm_data,
+        process_df=process_last_fm_df
+    )
+    shazam_df = load_composite_df_from_s3(
+        s3_bucket,
+        shazam_data,
+        pd.read_csv
+    )
     spotify_df = load_composite_df_from_s3(
         s3_bucket,
         spotify_data,
         lambda x : pd.read_csv(x, index_col=0)
     )
-    last_fm_df = None # associate_with_ds4a_id(last_fm_df, 'artist_name', 'track_name')
-    shazam_df = None #associate_with_ds4a_id(shazam_df, 'Artist', 'Title')
+    last_fm_df = associate_with_ds4a_id(last_fm_df, 'artist_name', 'track_name')
+    shazam_df = associate_with_ds4a_id(shazam_df, 'Artist', 'Title')
     spotify_df = associate_with_ds4a_id(spotify_df, 'artist_name', 'track_name', additional_drop_cols=['id'])
     load_data_to_redshift(
         last_fm_df,
