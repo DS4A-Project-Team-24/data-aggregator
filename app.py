@@ -230,7 +230,7 @@ def aggregate_spotify_data():
     upload_to_s3(s3_bucket, csv_file_name, compressed_csv_file)
 
 
-def associate_isrc(composite_df, last_fm_api_key, track_name_column, artist_name_column):
+def associate_isrc(composite_df, track_name_column, artist_name_column):
     df_entries = []
     for index, row in composite_df.iterrows():
         track_name = row[track_name_column]
@@ -344,7 +344,6 @@ def list_files(s3_bucket, directory=None):
 
 def data_load():
     s3_bucket = os.environ.get(ENV_S3_BUCKET, 'data-engineering')
-    last_fm_api_key = os.environ.get(ENV_LAST_FM_API_KEY)
     rs_host = os.environ.get(ENV_REDSHIFT_HOST, None)
     rs_port = os.environ.get(ENV_REDSHIFT_PORT, None)
     rs_db = os.environ.get(ENV_REDSHIFT_DB, None)
@@ -391,9 +390,9 @@ def data_load():
         spotify_data,
         pd.read_csv
     )
-    last_fm_df = associate_isrc(last_fm_df, last_fm_api_key, 'artist_name', 'track_name')
-    shazam_df = associate_isrc(shazam_df, last_fm_api_key, 'Artist', 'Title')
-    spotify_df = associate_isrc(spotify_df, last_fm_api_key, 'artist_name', 'track_name')
+    last_fm_df = associate_isrc(last_fm_df, 'artist_name', 'track_name')
+    shazam_df = associate_isrc(shazam_df, 'Artist', 'Title')
+    spotify_df = associate_isrc(spotify_df, 'artist_name', 'track_name')
     load_data_to_redshift(
         last_fm_df,
         shazam_df,
