@@ -26,7 +26,7 @@ AM_DATA_LOAD = 'data_load'
 LAST_FM_TOP_200_US_GEO_TRACK = 'http://ws.audioscrobbler.com/2.0/?api_key={}&format=json&' \
     'method=geo.gettoptracks&country=united%20states&limit=200&page=1'
 LAST_FM_FILE_REGEX = '.*lastfm_.*.json'
-LAST_FM_GET_TRACK = 'https://ws.audioscrobbler.com/2.0/?method=track.getInfo&api_key={}&artist={}&track={}&format=json'
+ISRC_SEARCH_TRACK = 'https://isrcsearch.ifpi.org/api/v1/search'
 REDSHIFT_DB_NAME_LAST_FM = 'last_fm'
 REDSHIFT_DB_NAME_SHAZAM = 'shazam'
 REDSHIFT_DB_NAME_SPOTIFY = 'spotify'
@@ -235,13 +235,25 @@ def associate_mbid(composite_df, last_fm_api_key, track_name_column, artist_name
     for index, row in composite_df.iterrows():
         track_name = row[track_name_column]
         artist_name = row[artist_name_column]
-        request_url = LAST_FM_GET_TRACK.format(last_fm_api_key, artist_name, track_name)
-        response = requests.get(request_url)
+        request_url = ISRC_SEARCH_TRACK
+        data = {
+            'number': 10,
+            'showReleases': 0,
+            'start': 0,
+            'searchFields': {
+                'artistName': artist_name,
+                'trackTitle': track_name
+            }
+        }
+        response = requests.post(request_url, data=data)
         if response.status_code == 200:
             body = response.json()
-            mbid = body.get('track', {}).get('mbid', None)
+            results = body.get('displayDocs', [])
+            isrcCode = None
+            if len(results) > 0:
+                isrcCode = results[0].get('isrcCode')
             df_entries.append({
-                'mbid': mbid,
+                'isrcCode': isrcCode,
                 track_name_column: track_name,
                 artist_name_column: artist_name
             })
@@ -297,6 +309,7 @@ def process_last_fm_df(composite_df):
     composite_df['attr_rank'] = composite_df['@attr'].apply(lambda x: x['rank'])
     composite_df['streamable_text'] = composite_df['streamable'].apply(lambda x: x['#text'])
     composite_df['streamable_fulltrack'] = composite_df['streamable'].apply(lambda x: x['fulltrack'])
+    composite_df = composite_df.rename(columns={'name': 'track_name'})
     composite_df = composite_df.drop(columns=['artist', '@attr', 'streamable', 'image'])
     return composite_df
 
@@ -378,6 +391,7 @@ def data_load():
         spotify_data,
         pd.read_csv
     )
+    last_fm_df = associate_mbid(last_fm_df, last_fm_api_key, 'artist_name', 'track_name')
     shazam_df = associate_mbid(shazam_df, last_fm_api_key, 'Artist', 'Title')
     spotify_df = associate_mbid(spotify_df, last_fm_api_key, 'artist_name', 'track_name')
     load_data_to_redshift(
