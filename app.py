@@ -305,6 +305,7 @@ def load_data_to_redshift(
 
 
 def update_watermark(s3_bucket, previously_processed_files, newly_processed_files):
+    logger = logging.getLogger('load_data.update_watermark')
     composite_watermark = previously_processed_files + newly_processed_files
     composite_watermark.sort()
     updated_watermark_file_content = compress_file('\n'.join(composite_watermark))
