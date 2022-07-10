@@ -253,13 +253,16 @@ def load_composite_df_from_s3(
         s3_bucket,
         file_names,
         df_parser_func,
+        file_name_prefix,
         processor_func=lambda x: x,
         process_df=lambda x: x):
     df_list = []
     for file_name in file_names:
+        file_date = file_name.replace(file_name_prefix, '').split('.')[0].split('/')[-1]
         file_content = download_from_s3(s3_bucket, file_name)
         file_content = processor_func(file_content)
         df = df_parser_func(io.StringIO(file_content))
+        df['file_upload_date'] = file_date
         df_list.append(df)
 
     composite_df = pd.concat(df_list, axis=0, ignore_index=True)
@@ -305,7 +308,18 @@ def update_watermark(s3_bucket, previously_processed_files, newly_processed_file
     composite_watermark = previously_processed_files + newly_processed_files
     composite_watermark.sort()
     updated_watermark_file_content = compress_file('\n'.join(composite_watermark))
-    upload_to_s3(s3_bucket, WATERMARK_FILE_KEY, updated_watermark_file_content)
+    object_name = WATERMARK_FILE_KEY
+    s3_client = boto3.resource('s3')
+
+    logger.info(f'Uploading {WATERMARK_FILE_KEY} to S3.')
+    try:
+        response = s3_client.Bucket(s3_bucket).upload_fileobj(
+            updated_watermark_file_content,
+            WATERMARK_FILE_KEY
+        )
+        logging.info(f'Successfully uploaded {WATERMARK_FILE_KEY} to S3: {response}.')
+    except ClientError as e:
+        logging.error(e)
 
 
 def list_files(s3_bucket, directory=None):
@@ -349,18 +363,21 @@ def data_load():
         s3_bucket,
         last_fm_data,
         pd.read_json,
+        'lastfm_',
         processor_func=process_last_fm_data,
         process_df=process_last_fm_df
     )
     shazam_df = load_composite_df_from_s3(
         s3_bucket,
         shazam_data,
-        pd.read_csv
+        pd.read_csv,
+        'shazam_'
     )
     spotify_df = load_composite_df_from_s3(
         s3_bucket,
         spotify_data,
-        lambda x: pd.read_csv(x, index_col=0)
+        lambda x: pd.read_csv(x, index_col=0),
+        'spotify_'
     )
     last_fm_df = associate_with_ds4a_id(last_fm_df, 'artist_name', 'track_name')
     shazam_df = associate_with_ds4a_id(shazam_df, 'Artist', 'Title')

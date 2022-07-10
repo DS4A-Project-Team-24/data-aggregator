@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS last_fm (
   attr_rank varchar,
   streamable_text varchar,
   streamable_fulltrack varchar,
+  file_upload_date date default getdate(),
   insert_timestamp timestamp default getdate()
 );
 
@@ -19,6 +20,7 @@ CREATE TABLE IF NOT EXISTS shazam (
   rank integer,
   artist varchar,
   title varchar,
+  file_upload_date date default getdate(),
   insert_timestamp timestamp default getdate()
 );
 
@@ -51,5 +53,6 @@ CREATE TABLE IF NOT EXISTS spotify (
   time_signature integer,
   track_href varchar,
   type varchar,
+  file_upload_date date default getdate(),
   insert_timestamp timestamp default getdate()
 );
