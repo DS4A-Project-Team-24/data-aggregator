@@ -308,8 +308,8 @@ def data_load():
     rs_host = os.environ.get(ENV_REDSHIFT_HOST, None)
     rs_port = os.environ.get(ENV_REDSHIFT_PORT, None)
     rs_db = os.environ.get(ENV_REDSHIFT_DB, None)
-    rs_user = os.environ.get(ENV_REDSHIFT_PASSWORD, None)
-    rs_password = os.environ.get(ENV_S3_BUCKET, None)
+    rs_user = os.environ.get(ENV_REDSHIFT_USER, None)
+    rs_password = os.environ.get(ENV_REDSHIFT_PASSWORD, None)
     logger = logging.getLogger('load_data')
     # Get metadata file
     watermark = download_from_s3(s3_bucket, WATERMARK_FILE_KEY)
