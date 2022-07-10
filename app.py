@@ -257,7 +257,7 @@ def associate_isrc(composite_df, track_name_column, artist_name_column):
                 track_name_column: track_name,
                 artist_name_column: artist_name
             })
-        time.sleep(1) # sleep for 1 second to avoid rate-limiting.
+        time.sleep(0.125)
     mbid_aux_df = pd.DataFrame(df_entries)
     decorated_df = composite_df.merge(
         mbid_aux_df,
@@ -312,6 +312,7 @@ def process_last_fm_df(composite_df):
     composite_df = composite_df.rename(columns={'name': 'track_name'})
     composite_df = composite_df.drop(columns=['artist', '@attr', 'streamable', 'image'])
     return composite_df
+
 
 def load_data_to_redshift(
         last_fm_df,
