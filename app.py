@@ -230,6 +230,31 @@ def aggregate_spotify_data():
     upload_to_s3(s3_bucket, csv_file_name, compressed_csv_file)
 
 
+def associate_mbid(composite_df, last_fm_api_key, track_name_column, artist_name_column):
+    df_entries = []
+    for index, row in composite_df.iterrows():
+        track_name = row[track_name_column]
+        artist_name = row[artist_name_column]
+        request_url = LAST_FM_GET_TRACK.format(last_fm_api_key, artist_name, track_name)
+        response = requests.get(request_url)
+        if response.status_code == 200:
+            body = response.json()
+            mbid = body.get('track', {}).get('mbid', None)
+            df_entries.append({
+                'mbid': mbid,
+                track_name_column: track_name,
+                artist_name_column: artist_name
+            })
+        time.sleep(1) # sleep for 1 second to avoid rate-limiting.
+    mbid_aux_df = pd.DataFrame(df_entries)
+    decorated_df = composite_df.merge(
+        mbid_aux_df,
+        left_on=[track_name_column, artist_name_column],
+        right_on=[track_name_column, artist_name_column]
+    )
+    return decorated_df
+
+
 def download_from_s3(s3_bucket, file_name):
     s3 = boto3.resource('s3')
     bucket = s3.Bucket(s3_bucket)
@@ -274,32 +299,6 @@ def process_last_fm_df(composite_df):
     composite_df['streamable_fulltrack'] = composite_df['streamable'].apply(lambda x: x['fulltrack'])
     composite_df = composite_df.drop(columns=['artist', '@attr', 'streamable', 'image'])
     return composite_df
-
-def get_mbid_lookup_provider(last_fm_api_key):
-    def mbid_lookup(composite_df, track_name_column, artist_name_column):
-        df_entries = []
-        for index, row in composite_df.iterrows():
-            track_name = row[track_name_column]
-            artist_name = row[artist_name_column]
-            request_url = LAST_FM_GET_TRACK.format(last_fm_api_key, artist_name, track_name)
-            response = requests.get(request_url)
-            if response.status_code == 200:
-                body = response.json()
-                mbid = body.get('track', {}).get('mbid', None)
-                df_entries.append({
-                    'mbid': mbid,
-                    track_name_column: track_name,
-                    artist_name_column: artist_name
-                })
-            time.sleep(1) # sleep for 1 second to avoid rate-limiting.
-        mbid_aux_df = pd.DataFrame(df_entries)
-        composite_df = composite_df.merge(
-            mbid_aux_df,
-            left_on=[track_name_column, artist_name_column],
-            right_on=[track_name_column, artist_name_column]
-        )
-        return composite_df
-    return mbid_lookup
 
 def load_data_to_redshift(
         last_fm_df,
@@ -372,15 +371,15 @@ def data_load():
     shazam_df = load_composite_df_from_s3(
         s3_bucket,
         shazam_data,
-        pd.read_csv,
-        process_df=get_mbid_lookup_provider(last_fm_api_key)
+        pd.read_csv
     )
     spotify_df = load_composite_df_from_s3(
         s3_bucket,
         spotify_data,
-        pd.read_csv,
-        process_df=get_mbid_lookup_provider(last_fm_api_key)
+        pd.read_csv
     )
+    shazam_df = associate_mbid(shazam_df, last_fm_api_key, 'Artist', 'Title')
+    spotify_df = associate_mbid(spotify_df, last_fm_api_key, 'artist_name', 'track_name')
     load_data_to_redshift(
         last_fm_df,
         shazam_df,
