@@ -304,8 +304,8 @@ def load_data_to_redshift(
 def update_watermark(s3_bucket, previously_processed_files, newly_processed_files):
     composite_watermark = previously_processed_files + newly_processed_files
     composite_watermark.sort()
-    updated_watermark_file_content = io.StringIO('\n'.join(composite_watermark))
-    #upload_to_s3(s3_bucket, WATERMARK_FILE_KEY, updated_watermark_file_content)
+    updated_watermark_file_content = compress_file('\n'.join(composite_watermark))
+    upload_to_s3(s3_bucket, WATERMARK_FILE_KEY, updated_watermark_file_content)
 
 
 def list_files(s3_bucket, directory=None):
@@ -360,11 +360,12 @@ def data_load():
     spotify_df = load_composite_df_from_s3(
         s3_bucket,
         spotify_data,
-        lambda x : pd.read_csv(x, index_col=0)
+        lambda x: pd.read_csv(x, index_col=0)
     )
     last_fm_df = associate_with_ds4a_id(last_fm_df, 'artist_name', 'track_name')
     shazam_df = associate_with_ds4a_id(shazam_df, 'Artist', 'Title')
     spotify_df = associate_with_ds4a_id(spotify_df, 'artist_name', 'track_name', additional_drop_cols=['id'])
+
     load_data_to_redshift(
         last_fm_df,
         shazam_df,
