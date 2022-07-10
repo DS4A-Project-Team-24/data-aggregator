@@ -16,7 +16,6 @@ import pandas as pd
 import re
 import requests
 import spotipy
-import time
 
 # CONSTANTS
 AM_SHAZAM = 'shazam'
@@ -26,7 +25,6 @@ AM_DATA_LOAD = 'data_load'
 LAST_FM_TOP_200_US_GEO_TRACK = 'http://ws.audioscrobbler.com/2.0/?api_key={}&format=json&' \
     'method=geo.gettoptracks&country=united%20states&limit=200&page=1'
 LAST_FM_FILE_REGEX = '.*lastfm_.*.json'
-ISRC_SEARCH_TRACK = 'https://isrcsearch.ifpi.org/api/v1/search'
 REDSHIFT_DB_NAME_LAST_FM = 'last_fm'
 REDSHIFT_DB_NAME_SHAZAM = 'shazam'
 REDSHIFT_DB_NAME_SPOTIFY = 'spotify'
@@ -177,7 +175,6 @@ def aggregate_spotify_data():
     }
     song_meta_df = pd.DataFrame.from_dict(song_meta)
     song_meta_df = song_meta_df.sort_values(by=['track_popularity'], ascending=False)
-    pd.set_option('display.max_columns', None)
 
     for a_id in song_meta_df.artist_id:
         artist = sp.artist(a_id)
@@ -230,41 +227,16 @@ def aggregate_spotify_data():
     upload_to_s3(s3_bucket, csv_file_name, compressed_csv_file)
 
 
-def associate_isrc(composite_df, track_name_column, artist_name_column):
-    df_entries = []
-    for index, row in composite_df.iterrows():
-        track_name = row[track_name_column]
-        artist_name = row[artist_name_column]
-        request_url = ISRC_SEARCH_TRACK
-        data = {
-            'number': 10,
-            'showReleases': 0,
-            'start': 0,
-            'searchFields': {
-                'artistName': artist_name,
-                'trackTitle': track_name
-            }
-        }
-        response = requests.post(request_url, data=data)
-        if response.status_code == 200:
-            body = response.json()
-            results = body.get('displayDocs', [])
-            isrcCode = None
-            if len(results) > 0:
-                isrcCode = results[0].get('isrcCode')
-            df_entries.append({
-                'isrc_code': isrcCode,
-                track_name_column: track_name,
-                artist_name_column: artist_name
-            })
-        time.sleep(0.125)
-    mbid_aux_df = pd.DataFrame(df_entries)
-    decorated_df = composite_df.merge(
-        mbid_aux_df,
-        left_on=[track_name_column, artist_name_column],
-        right_on=[track_name_column, artist_name_column]
-    )
-    return decorated_df
+def associate_with_ds4a_id(composite_df, artist_name_column, track_name_column, additional_drop_cols=[]):
+    composite_df['ds4a_id_temp'] = composite_df[artist_name_column] + composite_df[track_name_column]
+    composite_df['ds4a_id_temp'] = composite_df['ds4a_id_temp'].str.lower()
+    # Remove all non-alpha numeric characters from the concatenated string.
+    composite_df = composite_df.dropna(subset=['ds4a_id_temp'])
+    composite_df['ds4a_id'] = composite_df['ds4a_id_temp'].apply(lambda x: re.sub('[\W_]+', '', x))
+    drop_cols = ['ds4a_id_temp']
+    drop_cols += additional_drop_cols
+    composite_df = composite_df.drop(columns=drop_cols)
+    return composite_df
 
 
 def download_from_s3(s3_bucket, file_name):
@@ -324,10 +296,10 @@ def load_data_to_redshift(
         rs_user,
         rs_password):
     rs_conn = create_engine(f'postgresql://{rs_user}:{rs_password}@{rs_host}:{rs_port}/{rs_db}')
-    last_fm_df.to_sql(REDSHIFT_DB_NAME_LAST_FM, rs_conn, index=False, if_exists='append')
-    shazam_df.to_sql(REDSHIFT_DB_NAME_SHAZAM, rs_conn, index=False, if_exists='append')
+    # last_fm_df.to_sql(REDSHIFT_DB_NAME_LAST_FM, rs_conn, index=False, if_exists='append')
+    # shazam_df.to_sql(REDSHIFT_DB_NAME_SHAZAM, rs_conn, index=False, if_exists='append')
     spotify_df.to_sql(REDSHIFT_DB_NAME_SPOTIFY, rs_conn, index=False, if_exists='append')
-    rs_conn.close()
+    # rs_conn.dispose()
 
 
 def update_watermark(s3_bucket, previously_processed_files, newly_processed_files):
@@ -374,26 +346,26 @@ def data_load():
             spotify_data.append(file_name)
 
     logger.info(f'Unprocessed files:\n\tlast fm: {last_fm_data}\n\tshazam: {shazam_data}\n\tspotify: {spotify_data}')
-    last_fm_df = load_composite_df_from_s3(
-        s3_bucket,
-        last_fm_data,
-        pd.read_json,
-        processor_func=process_last_fm_data,
-        process_df=process_last_fm_df
-    )
-    shazam_df = load_composite_df_from_s3(
-        s3_bucket,
-        shazam_data,
-        pd.read_csv
-    )
+    # last_fm_df = load_composite_df_from_s3(
+    #     s3_bucket,
+    #     last_fm_data,
+    #     pd.read_json,
+    #     processor_func=process_last_fm_data,
+    #     process_df=process_last_fm_df
+    # )
+    # shazam_df = load_composite_df_from_s3(
+    #     s3_bucket,
+    #     shazam_data,
+    #     pd.read_csv
+    # )
     spotify_df = load_composite_df_from_s3(
         s3_bucket,
         spotify_data,
-        pd.read_csv
+        lambda x : pd.read_csv(x, index_col=0)
     )
-    last_fm_df = associate_isrc(last_fm_df, 'artist_name', 'track_name')
-    shazam_df = associate_isrc(shazam_df, 'Artist', 'Title')
-    spotify_df = associate_isrc(spotify_df, 'artist_name', 'track_name')
+    last_fm_df = None # associate_with_ds4a_id(last_fm_df, 'artist_name', 'track_name')
+    shazam_df = None #associate_with_ds4a_id(shazam_df, 'Artist', 'Title')
+    spotify_df = associate_with_ds4a_id(spotify_df, 'artist_name', 'track_name', additional_drop_cols=['id'])
     load_data_to_redshift(
         last_fm_df,
         shazam_df,
@@ -404,7 +376,7 @@ def data_load():
         rs_user,
         rs_password
     )
-    # update_watermark(s3_bucket, processed_file_names, unprocessed_file_names)
+    update_watermark(s3_bucket, processed_file_names, unprocessed_file_names)
 
 
 def handler(event, context):
@@ -427,10 +399,9 @@ def handler(event, context):
     else:
         raise InvalidAggregationModeError(f'Invalid aggregation_mode provided: "{aggregation_mode}"')
 
-
 def main():
-    rs_conn = create_engine(f'postgresql://redshift-user:3jZR%x&6^65@dw-analytics.czzlnmxcm5u7.us-east-1.redshift.amazonaws.com:5439/musicstreamingdb')
-    print(rs_conn.table_names())
+    data_load()
 
 if __name__ == '__main__':
+    pd.set_option('display.max_columns', None)
     main()

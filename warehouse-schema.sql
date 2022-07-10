@@ -1,4 +1,5 @@
 CREATE TABLE IF NOT EXISTS last_fm (
+  ds4a_id varchar primary key,
   track_name varchar,
   duration integer,
   listeners integer,
@@ -10,28 +11,29 @@ CREATE TABLE IF NOT EXISTS last_fm (
   attr_rank varchar,
   streamable_text varchar,
   streamable_fulltrack varchar,
-  isrc_code varchar
+  insert_timestamp timestamp default getdate()
 );
 
 CREATE TABLE IF NOT EXISTS shazam (
+  ds4a_id varchar primary key,
   rank integer,
   artist varchar,
   title varchar,
-  isrc_code varchar
+  insert_timestamp timestamp default getdate()
 );
 
 CREATE TABLE IF NOT EXISTS spotify (
+  ds4a_id varchar primary key,
   track_id varchar,
   track_name varchar,
   track_popularity integer,
   artist_id varchar,
   artist_name varchar,
   artist_popularity integer,
-  isrc_code varchar,
   album varchar,
   artist_genres varchar,
   artist_followers integer,
-  explicit varchar,
+  explicit boolean,
   danceability integer,
   energy integer,
   key integer,
@@ -48,5 +50,6 @@ CREATE TABLE IF NOT EXISTS spotify (
   duration_ms integer,
   time_signature integer,
   track_href varchar,
-  type varchar
+  type varchar,
+  insert_timestamp timestamp default getdate()
 );
