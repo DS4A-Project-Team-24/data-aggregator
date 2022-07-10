@@ -16,6 +16,7 @@ import pandas as pd
 import re
 import requests
 import spotipy
+import time
 
 # CONSTANTS
 AM_SHAZAM = 'shazam'
@@ -25,6 +26,7 @@ AM_DATA_LOAD = 'data_load'
 LAST_FM_TOP_200_US_GEO_TRACK = 'http://ws.audioscrobbler.com/2.0/?api_key={}&format=json&' \
     'method=geo.gettoptracks&country=united%20states&limit=200&page=1'
 LAST_FM_FILE_REGEX = '.*lastfm_.*.json'
+LAST_FM_GET_TRACK = 'https://ws.audioscrobbler.com/2.0/?method=track.getInfo&api_key={}&artist={}&track={}&format=json'
 REDSHIFT_DB_NAME_LAST_FM = 'last_fm'
 REDSHIFT_DB_NAME_SHAZAM = 'shazam'
 REDSHIFT_DB_NAME_SPOTIFY = 'spotify'
@@ -273,6 +275,31 @@ def process_last_fm_df(composite_df):
     composite_df = composite_df.drop(columns=['artist', '@attr', 'streamable', 'image'])
     return composite_df
 
+def get_mbid_lookup_provider(last_fm_api_key):
+    def mbid_lookup(composite_df, track_name_column, artist_name_column):
+        df_entries = []
+        for index, row in composite_df.iterrows():
+            track_name = row[track_name_column]
+            artist_name = row[artist_name_column]
+            request_url = LAST_FM_GET_TRACK.format(last_fm_api_key, artist_name, track_name)
+            response = requests.get(request_url)
+            if response.status_code == 200:
+                body = response.json()
+                mbid = body.get('track', {}).get('mbid', None)
+                df_entries.append({
+                    'mbid': mbid,
+                    track_name_column: track_name,
+                    artist_name_column: artist_name
+                })
+            time.sleep(1) # sleep for 1 second to avoid rate-limiting.
+        mbid_aux_df = pd.DataFrame(df_entries)
+        composite_df = composite_df.merge(
+            mbid_aux_df,
+            left_on=[track_name_column, artist_name_column],
+            right_on=[track_name_column, artist_name_column]
+        )
+        return composite_df
+    return mbid_lookup
 
 def load_data_to_redshift(
         last_fm_df,
@@ -305,6 +332,7 @@ def list_files(s3_bucket, directory=None):
 
 def data_load():
     s3_bucket = os.environ.get(ENV_S3_BUCKET, 'data-engineering')
+    last_fm_api_key = os.environ.get(ENV_LAST_FM_API_KEY)
     rs_host = os.environ.get(ENV_REDSHIFT_HOST, None)
     rs_port = os.environ.get(ENV_REDSHIFT_PORT, None)
     rs_db = os.environ.get(ENV_REDSHIFT_DB, None)
@@ -344,12 +372,14 @@ def data_load():
     shazam_df = load_composite_df_from_s3(
         s3_bucket,
         shazam_data,
-        pd.read_csv
+        pd.read_csv,
+        process_df=get_mbid_lookup_provider(last_fm_api_key)
     )
     spotify_df = load_composite_df_from_s3(
         s3_bucket,
         spotify_data,
-        pd.read_csv
+        pd.read_csv,
+        process_df=get_mbid_lookup_provider(last_fm_api_key)
     )
     load_data_to_redshift(
         last_fm_df,
@@ -383,3 +413,11 @@ def handler(event, context):
         data_load()
     else:
         raise InvalidAggregationModeError(f'Invalid aggregation_mode provided: "{aggregation_mode}"')
+
+
+def main():
+    rs_conn = create_engine(f'postgresql://redshift-user:3jZR%x&6^65@dw-analytics.czzlnmxcm5u7.us-east-1.redshift.amazonaws.com:5439/musicstreamingdb')
+    print(rs_conn.table_names())
+
+if __name__ == '__main__':
+    main()

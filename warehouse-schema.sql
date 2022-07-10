@@ -10,13 +10,14 @@ CREATE TABLE IF NOT EXISTS last_fm (
   attr_rank varchar,
   streamable_text varchar,
   streamable_fulltrack varchar
-)
+);
 
 CREATE TABLE IF NOT EXISTS shazam (
   rank integer,
   artist varchar,
-  listeners varchar
-)
+  title varchar,
+  mbid varchar
+);
 
 CREATE TABLE IF NOT EXISTS spotify (
   track_id varchar,
@@ -25,6 +26,7 @@ CREATE TABLE IF NOT EXISTS spotify (
   artist_id varchar,
   artist_name varchar,
   artist_popularity integer,
+  mbid varchar,
   album varchar,
   artist_genres varchar,
   artist_followers integer,
@@ -46,4 +48,4 @@ CREATE TABLE IF NOT EXISTS spotify (
   time_signature integer,
   track_href varchar,
   type varchar
-)
+);
