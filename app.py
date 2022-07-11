@@ -265,8 +265,10 @@ def load_composite_df_from_s3(
         df['file_upload_date'] = file_date
         df_list.append(df)
 
-    composite_df = pd.concat(df_list, axis=0, ignore_index=True)
-    composite_df = process_df(composite_df)
+    composite_df = pd.DataFrame()
+    if len(df_list) > 0:
+        composite_df = pd.concat(df_list, axis=0, ignore_index=True)
+        composite_df = process_df(composite_df)
     return composite_df
 
 
@@ -299,9 +301,15 @@ def load_data_to_redshift(
         rs_user,
         rs_password):
     rs_conn = create_engine(f'postgresql://{rs_user}:{rs_password}@{rs_host}:{rs_port}/{rs_db}')
-    last_fm_df.to_sql(REDSHIFT_DB_NAME_LAST_FM, rs_conn, index=False, if_exists='append')
-    shazam_df.to_sql(REDSHIFT_DB_NAME_SHAZAM, rs_conn, index=False, if_exists='append')
-    spotify_df.to_sql(REDSHIFT_DB_NAME_SPOTIFY, rs_conn, index=False, if_exists='append')
+
+    if len(last_fm_df.index) > 0:
+        last_fm_df.to_sql(REDSHIFT_DB_NAME_LAST_FM, rs_conn, index=False, if_exists='append')
+
+    if len(shazam_df.index) > 0:
+        shazam_df.to_sql(REDSHIFT_DB_NAME_SHAZAM, rs_conn, index=False, if_exists='append')
+
+    if len(spotify_df.index) > 0:
+        spotify_df.to_sql(REDSHIFT_DB_NAME_SPOTIFY, rs_conn, index=False, if_exists='append')
 
 
 def update_watermark(s3_bucket, previously_processed_files, newly_processed_files):
@@ -380,9 +388,15 @@ def data_load():
         lambda x: pd.read_csv(x, index_col=0),
         'spotify_'
     )
-    last_fm_df = associate_with_ds4a_id(last_fm_df, 'artist_name', 'track_name')
-    shazam_df = associate_with_ds4a_id(shazam_df, 'Artist', 'Title')
-    spotify_df = associate_with_ds4a_id(spotify_df, 'artist_name', 'track_name', additional_drop_cols=['id'])
+
+    if len(last_fm_df.index) > 0:
+        last_fm_df = associate_with_ds4a_id(last_fm_df, 'artist_name', 'track_name')
+
+    if len(shazam_df.index) > 0:
+        shazam_df = associate_with_ds4a_id(shazam_df, 'Artist', 'Title')
+
+    if len(spotify_df.index) > 0:
+        spotify_df = associate_with_ds4a_id(spotify_df, 'artist_name', 'track_name', additional_drop_cols=['id'])
 
     load_data_to_redshift(
         last_fm_df,
